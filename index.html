@@ -289,7 +289,7 @@ async function apiFetch(path, params={}){
 
 async function loadAccounts(){
   const d = await apiFetch('/accounts/');
-  raw.accounts = (d.response||[]).filter(a=>a.project!=='default');
+  raw.accounts = (d.response||[]).filter(a=>a.id);
 }
 
 async function loadStats(accountId, dateFrom, dateTo){
