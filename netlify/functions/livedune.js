@@ -6,7 +6,8 @@ const BASE_HOST = 'api.livedune.com';
 const agent = new https.Agent({ rejectUnauthorized: false });
 
 exports.handler = async (event) => {
-  const path = event.path.replace('/.netlify/functions/livedune', '') || '/accounts';
+  let path = event.path.replace('/.netlify/functions/livedune', '') || '/accounts/';
+  if (!path.endsWith('/')) path = path + '/';
   const qs = new URLSearchParams(event.queryStringParameters || {});
   qs.set('access_token', TOKEN);
   const url = `https://${BASE_HOST}${path}?${qs}`;
