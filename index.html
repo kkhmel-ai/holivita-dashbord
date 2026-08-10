@@ -244,9 +244,9 @@ body{background:var(--surface);color:var(--ink);font-family:"Inter",ui-sans-seri
 <script>
 const TOKEN = '';
 const API   = '/api/livedune';
-const PLT_COLORS = {instagram:'#e1306c',facebook:'#1877f2',x:'#333333',tiktok:'#8b6af0',twitter:'#333333'};
-const PLT_NAMES  = {instagram:'Instagram',facebook:'Facebook',x:'X',tiktok:'TikTok',twitter:'X'};
-const PLT_MAP    = {instagram:'instagram',facebook:'facebook',x:'x',twitter:'x',tiktok:'tiktok'};
+const PLT_COLORS = {instagram:'#e1306c',facebook:'#1877f2',x:'#333333',tiktok:'#8b6af0',twitter:'#333333',telegram:'#2ca5e0',youtube:'#ff0000'};
+const PLT_NAMES  = {instagram:'Instagram',facebook:'Facebook',x:'X',tiktok:'TikTok',twitter:'X',telegram:'Telegram',youtube:'YouTube'};
+const PLT_MAP    = {instagram:'instagram',instagram_new:'instagram',facebook:'facebook',fb_page:'facebook',x:'x',twitter:'x',tiktok:'tiktok',telegram:'telegram',youtube:'youtube'};
 const LABELS_W   = ['Нед 1','Нед 2','Нед 3','Нед 4'];
 const LABELS_D   = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const LABELS_M   = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -545,11 +545,11 @@ async function render(){
         };
         histMap[a.id] = s.map(r=>r.subscribers||r.followers||0);
       }else{
-        statsMap[a.id]={followers:a.subscribers||0,followers_delta:0,er:a.er||0,reach:0,likes:0};
+        statsMap[a.id]={followers:statsMap[a.id]={followers:a.stat&&a.stat.followers||a.subscribers||0,followers_delta:a.stat&&a.stat.followers_delta||0,er:a.stat&&a.stat.er||a.er||0,reach:0,likes:0};:0,er:a.er||0,reach:0,likes:0};
         histMap[a.id]=[];
       }
     }catch(e){
-      statsMap[a.id]={followers:a.subscribers||0,followers_delta:0,er:a.er||0,reach:0,likes:0};
+      statsMap[a.id]={followers:statsMap[a.id]={followers:a.stat&&a.stat.followers||a.subscribers||0,followers_delta:a.stat&&a.stat.followers_delta||0,er:a.stat&&a.stat.er||a.er||0,reach:0,likes:0};,er:a.er||0,reach:0,likes:0};
       histMap[a.id]=[];
     }
   }));
