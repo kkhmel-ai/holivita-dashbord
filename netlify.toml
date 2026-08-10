@@ -1,7 +1,0 @@
-[build]
-  functions = "netlify/functions"
-
-[[redirects]]
-  from = "/api/livedune/*"
-  to = "/.netlify/functions/livedune/:splat"
-  status = 200
