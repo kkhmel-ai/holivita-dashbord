@@ -293,22 +293,17 @@ async function loadAccounts(){
 }
 
 async function loadStats(accountId, dateFrom, dateTo){
-  try{
-    const d = await apiFetch(`/accounts/${accountId}/statistics/`, {date_from:dateFrom, date_to:dateTo});
-    return d.response||[];
-  }catch(e){ return []; }
+  const a = raw.accounts.find(acc=>acc.id===accountId);
+  if(a && a.stat) return [a.stat];
+  return [];
 }
 
 async function loadPosts(accountId){
+  async function loadPosts(accountId){
   if(raw.posts[accountId]) return raw.posts[accountId];
-  try{
-    const d = await apiFetch(`/accounts/${accountId}/posts/`);
-    raw.posts[accountId] = d.response||[];
-    return raw.posts[accountId];
-  }catch(e){ return []; }
+  return [];
 }
-
-// ──────────────────────────────── PLATFORM FILTER ────────────────────────────────
+  // ──────────────────────────────── PLATFORM FILTER ────────────────────────────────
 function setPlt(p){
   state.plt=p;
   document.querySelectorAll('.plt-chip').forEach(c=>c.classList.toggle('sel',c.dataset.p===p));
