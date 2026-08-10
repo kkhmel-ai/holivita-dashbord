@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Holivita — Social Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --brand:#7eb56b;--brand-deep:#639a53;
+  --green-soft:#dcebd5;--green-pale:#eef6ea;
+  --ink:#111311;--muted:#747872;
+  --paper:#ffffff;--surface:#f2f3f0;--line:#e2e5df;
+  --shadow:0 24px 70px rgba(27,36,25,.09);
+  --r-lg:22px;--r-md:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--surface);color:var(--ink);font-family:"Inter",system-ui,sans-serif;line-height:1.55}
+.page{width:min(1160px,calc(100% - 32px));margin:24px auto 80px}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 22px;background:var(--paper);border-radius:var(--r-lg) var(--r-lg) 0 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:800;letter-spacing:-.04em}
+.brand-dot{width:30px;height:30px;background:var(--brand);border-radius:10px;display:flex;align-items:center;justify-content:center}
+.brand-dot svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.5;stroke-linejoin:round}
+.status-pill{display:flex;align-items:center;gap:6px;padding:6px 13px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);background:#f8faf7}
+.sdot{width:7px;height:7px;border-radius:50%;background:#ccc}
+.sdot.live{background:var(--brand)}
+.sdot.err{background:#e74343}
+
+.hero-ctrl{background:linear-gradient(135deg,rgba(126,181,107,.97),rgba(151,202,133,.96));border-radius:0 0 28px 28px;padding:28px 28px 30px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.hero-ctrl h1{font-size:clamp(26px,4vw,42px);font-weight:500;color:#fff;letter-spacing:-.05em;line-height:1.05;margin-bottom:4px}
+.hero-ctrl p{color:rgba(255,255,255,.85);font-size:13px;font-weight:500}
+.ctrl-right{display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.seg{display:flex;background:rgba(255,255,255,.18);border-radius:10px;padding:3px;gap:2px}
+.seg-btn{padding:6px 14px;border:none;background:transparent;color:rgba(255,255,255,.8);font-size:12px;font-weight:600;border-radius:7px;cursor:pointer;font-family:inherit}
+.seg-btn.on{background:#fff;color:var(--brand-deep)}
+.date-wrap{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.18);border-radius:10px;padding:7px 14px}
+.date-wrap label{font-size:11px;color:rgba(255,255,255,.8);font-weight:600;white-space:nowrap}
+.date-wrap input{background:transparent;border:none;color:#fff;font-size:12px;font-weight:600;outline:none;font-family:inherit;cursor:pointer;width:110px}
+.date-wrap input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.7;cursor:pointer}
+.date-sep{color:rgba(255,255,255,.5);font-size:11px}
+
+.plt-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.plt-chip{display:flex;align-items:center;gap:7px;padding:7px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--paper);font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.plt-chip.sel{border-color:var(--brand);background:var(--green-pale);color:var(--brand-deep)}
+.pip{width:8px;height:8px;border-radius:50%}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 18px;box-shadow:var(--shadow)}
+.kpi-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.kpi-val{font-size:28px;font-weight:700;color:var(--brand-deep);line-height:1;letter-spacing:-.04em}
+.kpi-delta{font-size:12px;font-weight:600;margin-top:5px}
+.up{color:var(--brand-deep)}.dn{color:#c0392b}.nt{color:var(--muted)}
+
+.bd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.pc{background:var(--paper);border:1.5px solid var(--line);border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow)}
+.pc-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.pc-name{font-size:12px;font-weight:700}
+.pc-f{font-size:24px;font-weight:700;letter-spacing:-.04em;line-height:1;margin-bottom:6px}
+.pc-row{display:flex;gap:10px;flex-wrap:wrap}
+.pc-m{font-size:11px;font-weight:600;color:var(--muted)}
+.pc-m span{font-weight:700;color:var(--ink)}
+
+.chart-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px 22px 16px;box-shadow:var(--shadow);margin-bottom:12px}
+.chart-title{font-size:14px;font-weight:700;margin-bottom:4px}
+.chart-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.chart-wrap{position:relative;width:100%;height:200px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+.leg{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.leg-i{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.leg-sq{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+
+.posts-section{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;box-shadow:var(--shadow);margin-bottom:12px}
+.posts-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+.sec-lbl{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-deep);margin-bottom:4px}
+.posts-tabs{display:flex;gap:4px;background:var(--surface);border-radius:8px;padding:3px}
+.ptab{padding:5px 12px;border:none;background:transparent;color:var(--muted);font-size:12px;font-weight:600;border-radius:5px;cursor:pointer;font-family:inherit}
+.ptab.on{background:var(--paper);color:var(--ink)}
+.posts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:600px){.posts-grid{grid-template-columns:1fr}}
+.post-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#f8faf7}
+.post-thumb{width:100%;height:100px;object-fit:cover;display:block}
+.post-thumb-ph{width:100%;height:100px;display:flex;align-items:center;justify-content:center;background:var(--green-soft);font-size:28px}
+.post-body{padding:12px}
+.post-plt{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.post-desc{font-size:12px;font-weight:500;line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.post-stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.post-er{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;background:var(--green-soft);color:var(--brand-deep)}
+.post-er.w{background:#fce8e8;color:#c0392b}
+.psm{font-size:11px;font-weight:700;color:var(--muted)}
+.psm span{color:var(--ink)}
+.rb{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:8px;font-size:11px;font-weight:800;margin-right:4px}
+.r1{background:#f7e8b0;color:#7a5b00}.r2{background:#e4e4e4;color:#555}.r3{background:#f4ddc5;color:#7a4a00}
+
+.err-box{background:#fce8e8;border:1px solid #f5c0c0;border-radius:var(--r-md);padding:16px 20px;color:#c0392b;font-size:13px;margin-bottom:12px}
+.spin{width:20px;height:20px;border:2px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.footer{text-align:center;font-size:12px;color:var(--muted);margin-top:40px;padding-top:20px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-dot"><svg viewBox="0 0 16 16"><path d="M8 2C5 2 3 4.5 3 7c0 3.5 5 7 5 7s5-3.5 5-7c0-2.5-2-5-5-5z"/></svg></div>
+      Holivita Analytics
+    </div>
+    <div class="status-pill"><div class="sdot" id="sdot"></div><span id="stxt">Загрузка...</span></div>
+  </div>
+
+  <div class="hero-ctrl">
+    <div><h1>Social Dashboard</h1><p id="range-lbl">Загрузка данных из LiveDune...</p></div>
+    <div class="ctrl-right">
+      <div class="seg">
+        <button class="seg-btn" onclick="setPeriod('day')">День</button>
+        <button class="seg-btn on" onclick="setPeriod('week')">Неделя</button>
+        <button class="seg-btn" onclick="setPeriod('month')">Месяц</button>
+      </div>
+      <div class="date-wrap">
+        <label>С</label><input type="date" id="df" onchange="render()"/>
+        <span class="date-sep">—</span>
+        <label>По</label><input type="date" id="dt" onchange="render()"/>
+      </div>
+    </div>
+  </div>
+
+  <div class="plt-bar" id="plt-bar">
+    <div class="plt-chip sel" data-p="all" onclick="setPlt('all')"><span class="pip" style="background:var(--brand)"></span>Все</div>
+    <div class="plt-chip" data-p="instagram" onclick="setPlt('instagram')"><span class="pip" style="background:#e1306c"></span>Instagram</div>
+    <div class="plt-chip" data-p="tiktok" onclick="setPlt('tiktok')"><span class="pip" style="background:#8b6af0"></span>TikTok</div>
+    <div class="plt-chip" data-p="telegram" onclick="setPlt('telegram')"><span class="pip" style="background:#2ca5e0"></span>Telegram</div>
+    <div class="plt-chip" data-p="x" onclick="setPlt('x')"><span class="pip" style="background:#333"></span>X</div>
+    <div class="plt-chip" data-p="youtube" onclick="setPlt('youtube')"><span class="pip" style="background:#ff0000"></span>YouTube</div>
+    <div class="plt-chip" data-p="facebook" onclick="setPlt('facebook')"><span class="pip" style="background:#1877f2"></span>Facebook</div>
+  </div>
+
+  <div id="err-box" class="err-box" style="display:none"></div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div class="bd-grid" id="bd-grid"></div>
+
+  <div class="chart-card">
+    <div class="chart-title">Динамика подписчиков</div>
+    <div class="chart-sub" id="csub">по неделям</div>
+    <div class="leg" id="leg-f"></div>
+    <div class="chart-wrap"><canvas id="cF" role="img" aria-label="Подписчики">Подписчики.</canvas></div>
+  </div>
+
+  <div class="two-col">
+    <div class="chart-card" style="margin-bottom:0">
+      <div class="chart-title">ER% по платформам</div>
+      <div class="chart-sub">вовлечённость</div>
+      <div class="chart-wrap"><canvas id="cER" role="img" aria-label="ER">ER.</canvas></div>
+    </div>
+    <div class="chart-card" style="margin-bottom:0">
+      <div class="chart-title">Прирост / отток</div>
+      <div class="chart-sub">за период</div>
+      <div class="chart-wrap"><canvas id="cD" role="img" aria-label="Прирост">Прирост.</canvas></div>
+    </div>
+  </div>
+
+  <div class="posts-section" style="margin-top:12px">
+    <div class="posts-head">
+      <div><div class="sec-lbl">Топ постов</div><div style="font-size:16px;font-weight:700">Лучшие и худшие по ER</div></div>
+      <div class="posts-tabs">
+        <button class="ptab on" onclick="setPM('best')">🏆 Лучшие</button>
+        <button class="ptab" onclick="setPM('worst')">📉 Худшие</button>
+      </div>
+    </div>
+    <div class="posts-grid" id="posts-grid"><div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:20px"><span class="spin"></span>Загрузка постов...</div></div>
+  </div>
+
+  <div class="footer">Holivita Analytics · LiveDune API · <span id="upd"></span></div>
+</div>
+
+<script>
+const API = '/api/livedune';
+const PC = {instagram:'#e1306c',facebook:'#1877f2',x:'#111',tiktok:'#8b6af0',telegram:'#2ca5e0',youtube:'#ff0000'};
+const PN = {instagram:'Instagram',facebook:'Facebook',x:'X',tiktok:'TikTok',telegram:'Telegram',youtube:'YouTube'};
+const PM = {instagram_new:'instagram',instagram:'instagram',fb_page:'facebook',facebook:'facebook',x:'x',twitter:'x',tiktok:'tiktok',telegram:'telegram',youtube:'youtube'};
+
+let S={period:'week',plt:'all',pm:'best'};
+let accounts=[], postsCache={};
+let charts={};
+
+function fmt(d){return d.toISOString().slice(0,10)}
+function fmtN(n){return n>=1000000?(n/1e6).toFixed(1)+'M':n>=1000?(n/1000).toFixed(1)+'K':Math.round(n).toLocaleString()}
+function ptype(a){return PM[a.type]||a.type}
+
+function initDates(){
+  const to=new Date(),from=new Date(to);
+  from.setDate(to.getDate()-7);
+  document.getElementById('df').value=fmt(from);
+  document.getElementById('dt').value=fmt(to);
+}
+
+function getDates(){return{from:document.getElementById('df').value,to:document.getElementById('dt').value}}
+
+function setPeriod(p){
+  S.period=p;
+  document.querySelectorAll('.seg-btn').forEach(b=>b.classList.toggle('on',b.textContent===(p==='day'?'День':p==='week'?'Неделя':'Месяц')));
+  const to=new Date(),from=new Date(to);
+  if(p==='day') from.setDate(to.getDate()-1);
+  if(p==='week') from.setDate(to.getDate()-7);
+  if(p==='month') from.setMonth(to.getMonth()-1);
+  document.getElementById('df').value=fmt(from);
+  document.getElementById('dt').value=fmt(to);
+  render();
+}
+
+function setPlt(p){
+  S.plt=p;
+  document.querySelectorAll('.plt-chip').forEach(c=>{
+    c.classList.remove('sel');
+    if(c.dataset.p===p) c.classList.add('sel');
+  });
+  render();
+}
+
+function setPM(m){
+  S.pm=m;
+  document.querySelectorAll('.ptab').forEach(b=>b.classList.toggle('on',b.textContent.includes(m==='best'?'Лучшие':'Худшие')));
+  renderPosts();
+}
+
+function filtered(){
+  if(S.plt==='all') return accounts;
+  return accounts.filter(a=>ptype(a)===S.plt);
+}
+
+// Stats come directly from account.stat field
+function getStats(a){
+  const s=a.stat||{};
+  return {
+    followers: s.followers||a.followers||a.subscribers||0,
+    delta: s.followers_delta||s.delta||0,
+    er: s.er||a.er||0,
+    reach: s.reach||s.impressions||0,
+    likes: s.likes||s.likes_count||0,
+  };
+}
+
+function renderKPI(){
+  const accs=filtered();
+  let tf=0,td=0,tr=0,tl=0,ers=[];
+  accs.forEach(a=>{const s=getStats(a);tf+=s.followers;td+=s.delta;tr+=s.reach;tl+=s.likes;if(s.er)ers.push(s.er);});
+  const er=ers.length?ers.reduce((a,b)=>a+b,0)/ers.length:0;
+  const dc=td>0?'up':td<0?'dn':'nt',ds=td>=0?'+':'';
+  document.getElementById('kpi-grid').innerHTML=`
+    <div class="kpi"><div class="kpi-lbl">Подписчики</div><div class="kpi-val">${fmtN(tf)}</div><div class="kpi-delta ${dc}">${ds}${fmtN(td)} за период</div></div>
+    <div class="kpi"><div class="kpi-lbl">ER средний</div><div class="kpi-val">${er.toFixed(1)}%</div><div class="kpi-delta up">вовлечённость</div></div>
+    <div class="kpi"><div class="kpi-lbl">Охват</div><div class="kpi-val">${fmtN(tr)}</div><div class="kpi-delta nt">за период</div></div>
+    <div class="kpi"><div class="kpi-lbl">Лайки</div><div class="kpi-val">${fmtN(tl)}</div><div class="kpi-delta nt">взаимодействий</div></div>`;
+}
+
+function renderBreakdown(){
+  const byPlt={};
+  accounts.forEach(a=>{
+    const pt=ptype(a),s=getStats(a);
+    if(!byPlt[pt])byPlt[pt]={f:0,d:0,er:[],r:0,l:0};
+    byPlt[pt].f+=s.followers;byPlt[pt].d+=s.delta;
+    if(s.er)byPlt[pt].er.push(s.er);
+    byPlt[pt].r+=s.reach;byPlt[pt].l+=s.likes;
+  });
+  const vis=new Set(filtered().map(a=>ptype(a)));
+  const order=['instagram','tiktok','telegram','x','youtube','facebook'];
+  document.getElementById('bd-grid').innerHTML=order.map(pt=>{
+    const d=byPlt[pt];
+    const op=d&&vis.has(pt)?1:0.3;
+    const c=PC[pt]||'#888';
+    const er=d?d.er.length?(d.er.reduce((a,b)=>a+b,0)/d.er.length).toFixed(1):'—':'—';
+    const ds=d&&d.d>=0?'+':'';
+    const dc=d&&d.d>0?'var(--brand-deep)':d&&d.d<0?'#c0392b':'var(--muted)';
+    return `<div class="pc" style="opacity:${op};border-color:${c}33">
+      <div class="pc-head"><span class="pip" style="background:${c}"></span><span class="pc-name" style="color:${c}">${PN[pt]||pt}</span></div>
+      <div class="pc-f" style="color:${c}">${d?fmtN(d.f):'—'}</div>
+      <div class="pc-row">
+        <div class="pc-m">Δ <span style="color:${dc}">${d?ds+fmtN(d.d):'—'}</span></div>
+        <div class="pc-m">ER <span>${er}%</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderFollowers(){
+  const accs=filtered();
+  const byPlt={};
+  accs.forEach(a=>{const pt=ptype(a),s=getStats(a);if(!byPlt[pt])byPlt[pt]=0;byPlt[pt]+=s.followers;});
+  const pts=Object.keys(byPlt);
+  document.getElementById('leg-f').innerHTML=pts.map(p=>`<span class="leg-i"><span class="leg-sq" style="background:${PC[p]||'#888'}"></span>${PN[p]||p}</span>`).join('');
+  document.getElementById('csub').textContent=S.period==='day'?'за день':S.period==='month'?'за месяц':'за неделю';
+  if(charts.f)charts.f.destroy();
+  charts.f=new Chart(document.getElementById('cF'),{
+    type:'bar',
+    data:{labels:pts.map(p=>PN[p]||p),datasets:[{data:pts.map(p=>byPlt[p]),backgroundColor:pts.map(p=>(PC[p]||'#888')+'99'),borderColor:pts.map(p=>PC[p]||'#888'),borderWidth:1.5,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',titleColor:'#111',bodyColor:'#444',borderColor:'#e2e5df',borderWidth:1}},
+    scales:{x:{ticks:{color:'#747872',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#747872',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}}}}
+  });
+}
+
+function renderER(){
+  const accs=filtered();
+  const byPlt={};
+  accs.forEach(a=>{const pt=ptype(a),s=getStats(a);if(!byPlt[pt])byPlt[pt]=[];if(s.er)byPlt[pt].push(s.er);});
+  const pts=Object.keys(byPlt),vals=pts.map(p=>byPlt[p].length?+(byPlt[p].reduce((a,b)=>a+b,0)/byPlt[p].length).toFixed(1):0);
+  if(charts.er)charts.er.destroy();
+  charts.er=new Chart(document.getElementById('cER'),{
+    type:'bar',
+    data:{labels:pts.map(p=>PN[p]||p),datasets:[{data:vals,backgroundColor:pts.map(p=>(PC[p]||'#888')+'99'),borderColor:pts.map(p=>PC[p]||'#888'),borderWidth:1.5,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',titleColor:'#111',bodyColor:'#444',borderColor:'#e2e5df',borderWidth:1,callbacks:{label:c=>`ER: ${c.parsed.y}%`}}},
+    scales:{x:{ticks:{color:'#747872',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#747872',font:{size:10},callback:v=>v+'%'},grid:{color:'rgba(0,0,0,.04)'},suggestedMin:0}}}
+  });
+}
+
+function renderDelta(){
+  const accs=filtered();
+  const byPlt={};
+  accs.forEach(a=>{const pt=ptype(a),s=getStats(a);if(!byPlt[pt])byPlt[pt]=0;byPlt[pt]+=s.delta;});
+  const pts=Object.keys(byPlt),vals=pts.map(p=>byPlt[p]);
+  if(charts.d)charts.d.destroy();
+  charts.d=new Chart(document.getElementById('cD'),{
+    type:'bar',
+    data:{labels:pts.map(p=>PN[p]||p),datasets:[{data:vals,backgroundColor:vals.map((v,i)=>v>=0?(PC[pts[i]]||'#888')+'99':'#e7434388'),borderColor:vals.map((v,i)=>v>=0?(PC[pts[i]]||'#888'):'#e74343'),borderWidth:1.5,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',titleColor:'#111',bodyColor:'#444',borderColor:'#e2e5df',borderWidth:1}},
+    scales:{x:{ticks:{color:'#747872',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#747872',font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}}}}
+  });
+}
+
+async function renderPosts(){
+  const container=document.getElementById('posts-grid');
+  const {from,to}=getDates();
+  const accs=filtered();
+  let all=[];
+
+  for(const a of accs){
+    if(!postsCache[a.id]){
+      try{
+        const r=await fetch(`${API}/accounts/${a.id}/posts/?access_token=`);
+        // posts loaded via proxy - no token needed in URL
+        const d=await fetch(`${API}/accounts/${a.id}/posts/`);
+        if(d.ok){const j=await d.json();postsCache[a.id]=j.response||[];}
+        else postsCache[a.id]=[];
+      }catch(e){postsCache[a.id]=[];}
+    }
+    const pt=ptype(a);
+    (postsCache[a.id]||[]).forEach(p=>{
+      const dt=(p.date||p.created_at||'').slice(0,10);
+      if(dt&&dt>=from&&dt<=to){
+        all.push({...p,_pt:pt,_er:parseFloat(p.er_views||p.er||p.engagement_rate||0)||0,_a:a});
+      }
+    });
+  }
+
+  all.sort((a,b)=>S.pm==='best'?b._er-a._er:a._er-b._er);
+  const top=all.slice(0,3);
+
+  if(!top.length){
+    container.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:30px">Постов за выбранный период не найдено</div>';
+    return;
+  }
+
+  const rc=['r1','r2','r3'];
+  container.innerHTML=top.map((p,i)=>{
+    const c=PC[p._pt]||'#888',nm=PN[p._pt]||p._pt;
+    const thumb=p.image_url||p.thumbnail||'';
+    const desc=p.caption||p.text||p.description||'Без описания';
+    const er=p._er.toFixed(1);
+    const likes=fmtN(p.likes||p.likes_count||0);
+    const views=fmtN(p.views||p.reach||p.impressions||0);
+    return `<div class="post-card">
+      ${thumb?`<img class="post-thumb" src="${thumb}" alt="" onerror="this.style.display='none'"/>`:''}
+      <div class="post-thumb-ph" ${thumb?'style="display:none"':''}>📸</div>
+      <div class="post-body">
+        <div class="post-plt" style="color:${c}"><span class="rb ${rc[i]}">${i+1}</span>${nm}</div>
+        <div class="post-desc">${desc.slice(0,80)}${desc.length>80?'…':''}</div>
+        <div class="post-stats">
+          <span class="post-er${S.pm==='worst'?' w':''}">ER ${er}%</span>
+          <span class="psm">❤️ <span>${likes}</span></span>
+          <span class="psm">👁 <span>${views}</span></span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function render(){
+  const {from,to}=getDates();
+  document.getElementById('range-lbl').textContent=`${from} — ${to}`;
+  renderKPI();
+  renderBreakdown();
+  renderFollowers();
+  renderER();
+  renderDelta();
+  renderPosts();
+}
+
+async function init(){
+  initDates();
+  try{
+    document.getElementById('stxt').textContent='Подключение...';
+    const r=await fetch(`${API}/accounts/`);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d=await r.json();
+    accounts=d.response||[];
+    if(!accounts.length) throw new Error('Аккаунты не найдены');
+    document.getElementById('sdot').className='sdot live';
+    document.getElementById('stxt').textContent=`LiveDune · ${accounts.length} аккаунтов`;
+    document.getElementById('upd').textContent='Обновлено: '+new Date().toLocaleString('ru');
+    render();
+  }catch(e){
+    document.getElementById('sdot').className='sdot err';
+    document.getElementById('stxt').textContent='Ошибка';
+    const eb=document.getElementById('err-box');
+    eb.style.display='block';
+    eb.textContent='⚠️ '+e.message;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
