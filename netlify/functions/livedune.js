@@ -1,7 +1,7 @@
 const https = require('https');
 
 const TOKEN = process.env.LIVEDUNE_TOKEN;
-const BASE_HOST = 'api.livedune.ru';
+const BASE_HOST = 'api.livedune.com';
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 
