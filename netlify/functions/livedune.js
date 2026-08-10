@@ -3,6 +3,8 @@ const https = require('https');
 const TOKEN = process.env.LIVEDUNE_TOKEN;
 const BASE_HOST = 'api.livedune.ru';
 
+const agent = new https.Agent({ rejectUnauthorized: false });
+
 exports.handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/livedune', '') || '/accounts';
   const qs = new URLSearchParams(event.queryStringParameters || {});
@@ -10,7 +12,7 @@ exports.handler = async (event) => {
   const url = `https://${BASE_HOST}${path}?${qs}`;
 
   return new Promise((resolve) => {
-    https.get(url, (res) => {
+    const req = https.get(url, { agent }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -23,7 +25,8 @@ exports.handler = async (event) => {
           body: data,
         });
       });
-    }).on('error', (e) => {
+    });
+    req.on('error', (e) => {
       resolve({
         statusCode: 500,
         body: JSON.stringify({ error: e.message }),
