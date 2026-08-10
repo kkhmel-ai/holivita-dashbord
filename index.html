@@ -242,8 +242,8 @@ body{background:var(--surface);color:var(--ink);font-family:"Inter",ui-sans-seri
 </div>
 
 <script>
-const TOKEN = 'aa6a797534b30373.29551237';
-const API   = 'https://api.livedune.ru';
+const TOKEN = '';
+const API   = '/api/livedune';
 const PLT_COLORS = {instagram:'#e1306c',facebook:'#1877f2',x:'#333333',tiktok:'#8b6af0',twitter:'#333333'};
 const PLT_NAMES  = {instagram:'Instagram',facebook:'Facebook',x:'X',tiktok:'TikTok',twitter:'X'};
 const PLT_MAP    = {instagram:'instagram',facebook:'facebook',x:'x',twitter:'x',tiktok:'tiktok'};
@@ -281,7 +281,7 @@ function setPeriod(p){
 
 // ──────────────────────────────── API ────────────────────────────────
 async function apiFetch(path, params={}){
-  const q = new URLSearchParams({access_token:TOKEN, ...params});
+  const q = new URLSearchParams(params);
   const r = await fetch(`${API}${path}?${q}`);
   if(!r.ok) throw new Error(`API ${r.status}: ${path}`);
   return r.json();
