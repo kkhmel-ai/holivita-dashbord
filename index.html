@@ -310,7 +310,7 @@ function renderERChart(){
   const pts=Object.keys(byPlt).filter(p=>byPlt[p].length);
   const vals=pts.map(p=>+(byPlt[p].reduce((a,b)=>a+b,0)/byPlt[p].length).toFixed(1));
   if(charts.er)charts.er.destroy();
-  if(!pts.length){document.getElementById('cER').parentElement.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">Нет данных за период</div>';return;}
+  if(!pts.length){const erEl=document.getElementById('cER');if(erEl&&erEl.parentElement)erEl.parentElement.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">Нет данных за период</div>';return;}
   charts.er=new Chart(document.getElementById('cER'),{
     type:'bar',
     data:{labels:pts.map(p=>PN[p]||p),datasets:[{data:vals,backgroundColor:pts.map(p=>hex2rgba(PC[p]||'#888',.7)),borderColor:pts.map(p=>PC[p]||'#888'),borderWidth:1.5,borderRadius:8}]},
@@ -332,7 +332,7 @@ function renderDeltaChart(){
   const pts=Object.keys(byPlt).filter(p=>byPlt[p].posts>0);
   const vals=pts.map(p=>byPlt[p].posts);
   if(charts.d)charts.d.destroy();
-  if(!pts.length){document.getElementById('cD').parentElement.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">Нет постов за период</div>';return;}
+  if(!pts.length){const dEl=document.getElementById('cD');if(dEl&&dEl.parentElement)dEl.parentElement.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">Нет постов за период</div>';return;}
   charts.d=new Chart(document.getElementById('cD'),{
     type:'bar',
     data:{labels:pts.map(p=>PN[p]||p),datasets:[{data:vals,backgroundColor:pts.map(p=>hex2rgba(PC[p]||'#888',.7)),borderColor:pts.map(p=>PC[p]||'#888'),borderWidth:1.5,borderRadius:8,label:'Постов'}]},
