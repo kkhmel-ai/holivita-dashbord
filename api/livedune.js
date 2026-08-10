@@ -3,11 +3,15 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 
 module.exports = async (req, res) => {
   const TOKEN = process.env.LIVEDUNE_TOKEN;
-  const url = req.url || '';
-  const path = url.replace('/api/livedune', '') || '/accounts/';
+  
+  const fullPath = req.url || '';
+  const path = fullPath.replace(/^\/api\/livedune/, '') || '/accounts/';
   const finalPath = path.endsWith('/') ? path : path + '/';
+  
   const qs = new URLSearchParams(req.query || {});
+  qs.delete('_vercel_no_cache');
   qs.set('access_token', TOKEN);
+  
   const fullUrl = 'https://api.livedune.com' + finalPath + '?' + qs;
 
   return new Promise((resolve) => {
@@ -21,7 +25,7 @@ module.exports = async (req, res) => {
         resolve();
       });
     }).on('error', (e) => {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: e.message, url: fullUrl });
       resolve();
     });
   });
