@@ -288,13 +288,13 @@ async function apiFetch(path, params={}){
 }
 
 async function loadAccounts(){
-  const d = await apiFetch('/accounts');
+  const d = await apiFetch('/accounts/');
   raw.accounts = (d.response||[]).filter(a=>a.project!=='default');
 }
 
 async function loadStats(accountId, dateFrom, dateTo){
   try{
-    const d = await apiFetch(`/accounts/${accountId}/statistics`, {date_from:dateFrom, date_to:dateTo});
+    const d = await apiFetch(`/accounts/${accountId}/statistics/`, {date_from:dateFrom, date_to:dateTo});
     return d.response||[];
   }catch(e){ return []; }
 }
@@ -302,7 +302,7 @@ async function loadStats(accountId, dateFrom, dateTo){
 async function loadPosts(accountId){
   if(raw.posts[accountId]) return raw.posts[accountId];
   try{
-    const d = await apiFetch(`/accounts/${accountId}/posts`);
+    const d = await apiFetch(`/accounts/${accountId}/posts/`);
     raw.posts[accountId] = d.response||[];
     return raw.posts[accountId];
   }catch(e){ return []; }
