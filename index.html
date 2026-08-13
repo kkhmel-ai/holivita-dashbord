@@ -394,15 +394,39 @@ function render(){
   renderPosts();
 }
 
+let postsDebug=[];
 async function loadPosts(){
+  postsDebug=[];
   await Promise.all(accounts.map(async a=>{
     if(postsCache[a.id]!==undefined)return;
     postsCache[a.id]=[];
     try{
       const r=await fetch(API+'?_path=/accounts/'+a.id+'/posts');
-      if(r.ok){const j=await r.json();postsCache[a.id]=j.response||[];}
-    }catch(e){}
+      const text=await r.text();
+      let j=null;
+      try{j=JSON.parse(text);}catch(pe){}
+      if(r.ok && j){
+        postsCache[a.id]=j.response||[];
+        postsDebug.push({account:a.short_name||a.id,ok:true,status:r.status,count:(j.response||[]).length,sample:JSON.stringify((j.response||[])[0]||{}).slice(0,200)});
+      } else {
+        postsDebug.push({account:a.short_name||a.id,ok:false,status:r.status,body:text.slice(0,300)});
+      }
+    }catch(e){
+      postsDebug.push({account:a.short_name||a.id,ok:false,error:e.message});
+    }
   }));
+  renderPostsDebug();
+}
+function renderPostsDebug(){
+  let box=document.getElementById('posts-debug');
+  if(!box){
+    box=document.createElement('div');
+    box.id='posts-debug';
+    box.style='background:#fff8e1;border:1px solid #f0d090;border-radius:14px;padding:14px 18px;margin-bottom:12px;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-all;color:#5a4a10';
+    const section=document.querySelector('.posts-section');
+    section.parentNode.insertBefore(box,section);
+  }
+  box.textContent='DEBUG loadPosts (временный блок, потом удалим):\n'+postsDebug.map(d=>JSON.stringify(d)).join('\n');
 }
 
 async function loadPrevFollowers(){
