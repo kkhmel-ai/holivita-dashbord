@@ -8,11 +8,28 @@ module.exports = async (req, res) => {
   delete qp._path;
   delete qp['_vercel_no_cache'];
 
+  // Only the default accounts list needs a trailing slash. Custom sub-resource
+  // paths (e.g. /accounts/{id}/posts) must be sent EXACTLY as given — LiveDune
+  // does not match a trailing slash on those and silently falls back to the
+  // accounts list, which was making posts/ER/top-posts always empty.
   const finalPath = customPath || '/accounts/';
   const qs = new URLSearchParams(qp);
   qs.set('access_token', TOKEN);
 
   const url = 'https://api.livedune.com'+finalPath+'?'+qs;
+
+  if (req.query && req.query._debug) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json({
+      debug: true,
+      rawReqQuery: req.query,
+      customPath: customPath,
+      finalPath: finalPath,
+      constructedUrl: url.replace(TOKEN, 'REDACTED')
+    });
+    return;
+  }
 
   return new Promise((resolve) => {
     https.get(url, {agent}, (r) => {
