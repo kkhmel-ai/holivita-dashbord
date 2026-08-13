@@ -399,7 +399,7 @@ async function loadPosts(){
     if(postsCache[a.id]!==undefined)return;
     postsCache[a.id]=[];
     try{
-      const r=await fetch(API+'?_path=/accounts/'+a.id+'/posts/');
+     const r=await fetch(API+'?_path=/accounts/'+a.id+'/posts');
       if(r.ok){const j=await r.json();postsCache[a.id]=j.response||[];}
     }catch(e){}
   }));
