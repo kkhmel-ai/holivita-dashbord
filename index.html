@@ -113,6 +113,11 @@ body{background:var(--surface);color:var(--ink);font-family:"Inter",system-ui,sa
     </div>
   </div>
   <div class="plt-bar" id="plt-bar"></div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+  <button onclick="refreshAll()" style="display:flex;align-items:center;gap:7px;padding:8px 16px;background:var(--paper);border:1.5px solid var(--line);border-radius:999px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit" id="refresh-btn">
+    ↻ Обновить данные
+  </button>
+</div>
   <div id="err-box" class="err-box" style="display:none"></div>
   <div class="kpi-grid" id="kpi-grid"></div>
   <div class="bd-grid" id="bd-grid"></div>
@@ -426,6 +431,21 @@ async function loadMeta(){
       if(fb){ fb.stat = fb.stat||{}; fb.stat.followers = d.page.followers_count; fb.subscribers = d.page.followers_count; }
     }
   }catch(e){}
+}
+  async function refreshAll(){
+  const btn=document.getElementById('refresh-btn');
+  btn.textContent='⏳ Загрузка...';
+  btn.disabled=true;
+  postsCache={};
+  prevFollowers={};
+  try{
+    const r=await fetch('/api/meta');
+    if(r.ok){const d=await r.json();if(d.ig){const ig=accounts.find(a=>ptype(a)==='instagram');if(ig){ig.stat=ig.stat||{};ig.stat.followers=d.ig.followers_count;ig.subscribers=d.ig.followers_count;}}if(d.page){const fb=accounts.find(a=>ptype(a)==='facebook');if(fb){fb.stat=fb.stat||{};fb.stat.followers=d.page.followers_count;fb.subscribers=d.page.followers_count;}}}
+  }catch(e){}
+  await Promise.all([loadPosts(),loadPrevFollowers()]);
+  render();
+  btn.textContent='✓ Обновлено';
+  setTimeout(()=>{btn.textContent='↻ Обновить данные';btn.disabled=false;},2000);
 }
 async function init(){
   initDates();
