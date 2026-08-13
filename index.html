@@ -225,7 +225,7 @@ function filtered(){return S.plt==='all'?accounts:accounts.filter(a=>ptype(a)===
 
 function getPostsInPeriod(accountId){
   const {from,to}=getDates();
-  return (postsCache[accountId]||[]).filter(p=>{const d=(p.date||p.created_at||'').slice(0,10);return d&&d>=from&&d<=to;});
+  return (postsCache[accountId]||[]).filter(p=>{const d=(p.created||p.date||p.created_at||'').slice(0,10);return d&&d>=from&&d<=to;});
 }
 
 function renderKPI(){
@@ -407,7 +407,8 @@ async function loadPosts(){
       try{j=JSON.parse(text);}catch(pe){}
       if(r.ok && j){
         postsCache[a.id]=j.response||[];
-        postsDebug.push({account:a.short_name||a.id,ok:true,status:r.status,count:(j.response||[]).length,sample:JSON.stringify((j.response||[])[0]||{}).slice(0,200)});
+        const s0=(j.response||[])[0]||{};
+        postsDebug.push({account:a.short_name||a.id,ok:true,status:r.status,count:(j.response||[]).length,fields:Object.keys(s0),sample:JSON.stringify(s0).slice(0,400)});
       } else {
         postsDebug.push({account:a.short_name||a.id,ok:false,status:r.status,body:text.slice(0,300)});
       }
