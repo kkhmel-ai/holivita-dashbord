@@ -179,9 +179,17 @@ function getF(a){return a.stat&&a.stat.followers||a.followers||a.subscribers||0}
 // direct "er" field — likes/comments live in p.reactions, and reach is either
 // p.reach (IG/FB) or p.impressions.total (other platforms). ER isn't provided
 // at all, so we compute it ourselves as (likes+comments)/reach*100.
-function postLikes(p){return (p.reactions&&p.reactions.likes)||p.likes||0}
-function postComments(p){return (p.reactions&&p.reactions.comments)||p.comments||0}
-function postViews(p){return p.reach||(p.impressions&&p.impressions.total)||p.views||0}
+// Some numeric-looking fields (reach, impressions) come back as an object
+// like {total:123} on some platforms and a plain number on others — normalize.
+function numOf(x){
+  if(x==null)return 0;
+  if(typeof x==='number')return x;
+  if(typeof x==='object')return x.total||x.value||x.count||0;
+  return parseFloat(x)||0;
+}
+function postLikes(p){return numOf(p.reactions&&p.reactions.likes)||numOf(p.likes)||0}
+function postComments(p){return numOf(p.reactions&&p.reactions.comments)||numOf(p.comments)||0}
+function postViews(p){return numOf(p.reach)||numOf(p.impressions)||numOf(p.views)||0}
 function postER(p,followersFallback){
   const eng=postLikes(p)+postComments(p);
   const base=postViews(p)||followersFallback||0;
