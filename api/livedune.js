@@ -8,8 +8,7 @@ module.exports = async (req, res) => {
   delete qp._path;
   delete qp['_vercel_no_cache'];
 
-  const path = customPath || '/accounts/';
-  const finalPath = path.endsWith('/') ? path : path+'/';
+  const finalPath = customPath || '/accounts/';
   const qs = new URLSearchParams(qp);
   qs.set('access_token', TOKEN);
 
