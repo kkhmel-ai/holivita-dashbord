@@ -412,7 +412,21 @@ async function loadPrevFollowers(){
     }
   }catch(e){}
 }
-
+async function loadMeta(){
+  try{
+    const r = await fetch('/api/meta');
+    if(!r.ok) return;
+    const d = await r.json();
+    if(d.ig) {
+      const ig = accounts.find(a=>ptype(a)==='instagram');
+      if(ig){ ig.stat = ig.stat||{}; ig.stat.followers = d.ig.followers_count; ig.subscribers = d.ig.followers_count; }
+    }
+    if(d.page) {
+      const fb = accounts.find(a=>ptype(a)==='facebook');
+      if(fb){ fb.stat = fb.stat||{}; fb.stat.followers = d.page.followers_count; fb.subscribers = d.page.followers_count; }
+    }
+  }catch(e){}
+}
 async function init(){
   initDates();
   buildPltBar();
@@ -428,7 +442,7 @@ async function init(){
     document.getElementById('stxt').textContent='LiveDune · '+accounts.length+' аккаунтов';
     document.getElementById('upd').textContent='Обновлено: '+new Date().toLocaleString('ru');
     render();
-    await Promise.all([loadPosts(),loadPrevFollowers()]);
+await Promise.all([loadPosts(),loadPrevFollowers(),loadMeta()]);
     render();
   }catch(e){
     document.getElementById('sdot').className='sdot err';
