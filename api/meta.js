@@ -31,14 +31,11 @@ module.exports = async (req, res) => {
     const [page, ig, igMedia] = await Promise.all([
       safe(get(`${BASE}/${PAGE_ID}?fields=name,fan_count,followers_count&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}?fields=username,followers_count,media_count&access_token=${TOKEN}`)),
-      // reach/impressions/engagement were dropped from this fields list —
-      // they require the instagram_manage_insights permission, which this
-      // app/token doesn't currently have (confirmed via ?debug=1: error #10
-      // "Application does not have permission for this action"). Without
-      // them the whole /media call was failing and returning nothing at all
-      // (Graph API rejects the entire fields list if one field needs a
-      // missing permission), which is why comments were empty too — there
-      // was no media list to pull comments from.
+      // reach/impressions/engagement are left out here on purpose — nothing
+      // in the front end reads them off igMedia (ER/reach for Instagram
+      // comes from LiveDune's own posts data instead), so there's no reason
+      // to widen the fields list and risk the whole /media call failing if
+      // a field ever needs a permission this token lacks.
       safe(get(`${BASE}/${IG_ID}/media?fields=id,timestamp,like_count,comments_count,caption,permalink,media_url,thumbnail_url&limit=20&access_token=${TOKEN}`)),
     ]);
 
@@ -113,19 +110,11 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
-    const out = {
+    res.status(200).json({
       page, ig, igMedia: (igMedia && igMedia.data) || [],
       demographics,
       comments: { instagram: igCommentsFlat, facebook: fbCommentsFlat },
-    };
-    // Temporary: expose the raw Graph API responses for the demographics
-    // calls when they came back empty, so we can see the actual error
-    // (permission/scope/deprecation) instead of guessing. Remove once
-    // diagnosed.
-    if (req.query && req.query.debug) {
-      out._debugRaw = { igAge, igGender, igCountry, igMediaRaw: igMedia };
-    }
-    res.status(200).json(out);
+    });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
