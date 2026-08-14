@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/api/livedune/(.*)", "destination": "/api/livedune" }
+  ],
+  "crons": [
+    { "path": "/api/snapshot", "schedule": "0 3 * * *" }
+  ]
+}
