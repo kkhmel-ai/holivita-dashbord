@@ -43,28 +43,30 @@ module.exports = async (req, res) => {
     // Meta requires >=100 followers for any of these to return real data;
     // below that threshold, or without the right permission, this just
     // comes back empty rather than erroring.
-    // NOTE on Facebook Page geo demographics: page_fans_country/city/locale
-    // were confirmed (via earlier ?debug=1 testing) to be outright rejected
-    // by Meta with "(#100) The value must be a valid insights metric" — those
-    // old metric names are dead. Meta's Nov 2025 metrics deprecation replaced
-    // them with page_follows_country / page_follows_city (no replacement was
-    // ever shipped for gender/age or locale — those are gone for good), so we
-    // try the new names below instead of hardcoding FB as unavailable.
-    // First attempt (page_follows_country/city with no date range) came back
-    // as valid-but-empty (data: []) — not a permission/name error, just no
-    // rows. Widening to an explicit 90-day since/until window in case the
-    // default window is too narrow, plus trying the breakdown-param style
-    // (like Instagram's follower_demographics) as a fallback candidate.
-    const today = new Date();
-    const since90 = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const untilToday = today.toISOString().slice(0, 10);
-    const [igAge, igGender, igCountry, fbCountry, fbCity, fbFansCountryBd] = await Promise.all([
+    // NOTE on Facebook Page geo demographics — investigated thoroughly:
+    // - page_fans_country/city/locale (old names): outright rejected with
+    //   "(#100) The value must be a valid insights metric" — dead, removed.
+    // - page_fans + breakdown=country (mimicking Instagram's style): also
+    //   rejected with the same #100 error — breakdown isn't a valid param
+    //   for page_fans.
+    // - page_follows_country / page_follows_city (the names Meta's own Nov
+    //   2025 deprecation notice lists as the replacement): ACCEPTED as valid
+    //   metric names (no error), but consistently return an empty dataset
+    //   (data: []) even with a wide 90-day since/until window. Meta's own
+    //   migration docs say breakdown-by-country/city support for the new
+    //   "Page followers" metric is still being rolled out on their end as of
+    //   this writing — so this isn't fixable in our code; it's pending on
+    //   Meta's side. We keep calling it (cheap, harmless, degrades to an
+    //   empty list gracefully) so it starts working automatically the day
+    //   Meta finishes that rollout, with no code change needed here.
+    // - Age/gender (page_fans_gender_age): discontinued in Nov 2025 with no
+    //   replacement metric at all — genuinely gone for good.
+    const [igAge, igGender, igCountry, fbCountry, fbCity] = await Promise.all([
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=age&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=gender&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=country&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_country&period=day&since=${since90}&until=${untilToday}&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_city&period=day&since=${since90}&until=${untilToday}&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_fans&metric_type=total_value&period=lifetime&breakdown=country&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_country&period=day&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_city&period=day&access_token=${TOKEN}`)),
     ]);
 
     function pickBreakdown(resp) {
@@ -109,7 +111,7 @@ module.exports = async (req, res) => {
         country: pickBreakdown(igCountry),
       },
       fb: {
-        country: pickPageMapMetric(fbCountry) || pickBreakdown(fbFansCountryBd),
+        country: pickPageMapMetric(fbCountry),
         city: pickPageMapMetric(fbCity),
         // Meta discontinued page_fans_gender_age in Nov 2025 with no
         // replacement metric — genuinely not obtainable via API anymore.
@@ -117,7 +119,7 @@ module.exports = async (req, res) => {
       },
     };
     if (req.query && req.query.fbdebug) {
-      demographics.fb._debugRaw = { fbCountry, fbCity, fbFansCountryBd };
+      demographics.fb._debugRaw = { fbCountry, fbCity };
     }
 
     // Latest comments — best effort. IG media comments need the extra
