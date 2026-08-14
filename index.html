@@ -414,15 +414,36 @@ function render(){
   renderPosts();
 }
 
+let reachDebug=[];
 async function loadPosts(){
+  reachDebug=[];
   await Promise.all(accounts.map(async a=>{
     if(postsCache[a.id]!==undefined)return;
     postsCache[a.id]=[];
     try{
       const r=await fetch(API+'?_path=/accounts/'+a.id+'/posts');
-      if(r.ok){const j=await r.json();postsCache[a.id]=j.response||[];}
+      if(r.ok){
+        const j=await r.json();
+        postsCache[a.id]=j.response||[];
+        const s0=(j.response||[])[0];
+        if(s0){
+          reachDebug.push({account:a.short_name||a.id,pt:ptype(a),reach:JSON.stringify(s0.reach),impressions:JSON.stringify(s0.impressions),reactions:JSON.stringify(s0.reactions)});
+        }
+      }
     }catch(e){}
   }));
+  renderReachDebug();
+}
+function renderReachDebug(){
+  let box=document.getElementById('reach-debug');
+  if(!box){
+    box=document.createElement('div');
+    box.id='reach-debug';
+    box.style='background:#fff8e1;border:1px solid #f0d090;border-radius:14px;padding:14px 18px;margin-bottom:12px;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-all;color:#5a4a10';
+    const section=document.querySelector('.posts-section');
+    section.parentNode.insertBefore(box,section);
+  }
+  box.textContent='DEBUG reach/impressions/reactions (временный блок):\n'+reachDebug.map(d=>JSON.stringify(d)).join('\n');
 }
 
 async function loadPrevFollowers(){
