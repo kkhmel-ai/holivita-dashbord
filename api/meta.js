@@ -50,12 +50,21 @@ module.exports = async (req, res) => {
     // them with page_follows_country / page_follows_city (no replacement was
     // ever shipped for gender/age or locale — those are gone for good), so we
     // try the new names below instead of hardcoding FB as unavailable.
-    const [igAge, igGender, igCountry, fbCountry, fbCity] = await Promise.all([
+    // First attempt (page_follows_country/city with no date range) came back
+    // as valid-but-empty (data: []) — not a permission/name error, just no
+    // rows. Widening to an explicit 90-day since/until window in case the
+    // default window is too narrow, plus trying the breakdown-param style
+    // (like Instagram's follower_demographics) as a fallback candidate.
+    const today = new Date();
+    const since90 = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const untilToday = today.toISOString().slice(0, 10);
+    const [igAge, igGender, igCountry, fbCountry, fbCity, fbFansCountryBd] = await Promise.all([
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=age&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=gender&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=country&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_country&period=day&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_city&period=day&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_country&period=day&since=${since90}&until=${untilToday}&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_city&period=day&since=${since90}&until=${untilToday}&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_fans&metric_type=total_value&period=lifetime&breakdown=country&access_token=${TOKEN}`)),
     ]);
 
     function pickBreakdown(resp) {
@@ -76,15 +85,20 @@ module.exports = async (req, res) => {
     function pickPageMapMetric(resp) {
       // Shape: { data: [{ values: [{ value: { "US": 123, "GB": 45, ... }, end_time }] }] }
       // page_follows_country/city are daily time-series of a country->count
-      // (or city->count) map — take the most recent day's snapshot.
+      // (or city->count) map. Scan from the newest day backwards for the
+      // first non-empty snapshot, since the very latest day can legitimately
+      // be an empty {} if the metric hasn't rolled up yet.
       try {
         const vals = resp.data && resp.data[0] && resp.data[0].values;
         if (!Array.isArray(vals) || !vals.length) return null;
-        const last = vals[vals.length - 1].value;
-        if (!last || typeof last !== 'object') return null;
-        const keys = Object.keys(last);
-        if (!keys.length) return null;
-        return keys.map(k => ({ key: k, value: last[k] }));
+        for (let i = vals.length - 1; i >= 0; i--) {
+          const v = vals[i].value;
+          if (v && typeof v === 'object') {
+            const keys = Object.keys(v);
+            if (keys.length) return keys.map(k => ({ key: k, value: v[k] }));
+          }
+        }
+        return null;
       } catch (e) { return null; }
     }
 
@@ -95,7 +109,7 @@ module.exports = async (req, res) => {
         country: pickBreakdown(igCountry),
       },
       fb: {
-        country: pickPageMapMetric(fbCountry),
+        country: pickPageMapMetric(fbCountry) || pickBreakdown(fbFansCountryBd),
         city: pickPageMapMetric(fbCity),
         // Meta discontinued page_fans_gender_age in Nov 2025 with no
         // replacement metric — genuinely not obtainable via API anymore.
@@ -103,7 +117,7 @@ module.exports = async (req, res) => {
       },
     };
     if (req.query && req.query.fbdebug) {
-      demographics.fb._debugRaw = { fbCountry, fbCity };
+      demographics.fb._debugRaw = { fbCountry, fbCity, fbFansCountryBd };
     }
 
     // Latest comments — best effort. IG media comments need the extra
