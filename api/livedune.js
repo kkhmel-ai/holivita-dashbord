@@ -18,19 +18,6 @@ module.exports = async (req, res) => {
 
   const url = 'https://api.livedune.com'+finalPath+'?'+qs;
 
-  if (req.query && req.query._debug) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json({
-      debug: true,
-      rawReqQuery: req.query,
-      customPath: customPath,
-      finalPath: finalPath,
-      constructedUrl: url.replace(TOKEN, 'REDACTED')
-    });
-    return;
-  }
-
   return new Promise((resolve) => {
     https.get(url, {agent}, (r) => {
       let data = '';
