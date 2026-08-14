@@ -43,15 +43,19 @@ module.exports = async (req, res) => {
     // Meta requires >=100 followers for any of these to return real data;
     // below that threshold, or without the right permission, this just
     // comes back empty rather than erroring.
-    // NOTE on Facebook Page geo demographics (page_fans_country/city/locale):
-    // confirmed via ?debug=1 that Meta now rejects these outright with
-    // "(#100) The value must be a valid insights metric" — they've been
-    // removed from the API, not just permission-gated, so we no longer
-    // call them at all (dead end regardless of permissions).
-    const [igAge, igGender, igCountry] = await Promise.all([
+    // NOTE on Facebook Page geo demographics: page_fans_country/city/locale
+    // were confirmed (via earlier ?debug=1 testing) to be outright rejected
+    // by Meta with "(#100) The value must be a valid insights metric" — those
+    // old metric names are dead. Meta's Nov 2025 metrics deprecation replaced
+    // them with page_follows_country / page_follows_city (no replacement was
+    // ever shipped for gender/age or locale — those are gone for good), so we
+    // try the new names below instead of hardcoding FB as unavailable.
+    const [igAge, igGender, igCountry, fbCountry, fbCity] = await Promise.all([
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=age&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=gender&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=country&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_country&period=day&access_token=${TOKEN}`)),
+      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_follows_city&period=day&access_token=${TOKEN}`)),
     ]);
 
     function pickBreakdown(resp) {
@@ -69,6 +73,20 @@ module.exports = async (req, res) => {
         return m && m.values && m.values[0] && m.values[0].value || null;
       } catch (e) { return null; }
     }
+    function pickPageMapMetric(resp) {
+      // Shape: { data: [{ values: [{ value: { "US": 123, "GB": 45, ... }, end_time }] }] }
+      // page_follows_country/city are daily time-series of a country->count
+      // (or city->count) map — take the most recent day's snapshot.
+      try {
+        const vals = resp.data && resp.data[0] && resp.data[0].values;
+        if (!Array.isArray(vals) || !vals.length) return null;
+        const last = vals[vals.length - 1].value;
+        if (!last || typeof last !== 'object') return null;
+        const keys = Object.keys(last);
+        if (!keys.length) return null;
+        return keys.map(k => ({ key: k, value: last[k] }));
+      } catch (e) { return null; }
+    }
 
     const demographics = {
       ig: {
@@ -76,8 +94,17 @@ module.exports = async (req, res) => {
         gender: pickBreakdown(igGender),
         country: pickBreakdown(igCountry),
       },
-      fb: { unavailable: true }, // Meta removed page_fans_country/city/locale — no longer callable at all.
+      fb: {
+        country: pickPageMapMetric(fbCountry),
+        city: pickPageMapMetric(fbCity),
+        // Meta discontinued page_fans_gender_age in Nov 2025 with no
+        // replacement metric — genuinely not obtainable via API anymore.
+        noAgeGender: true,
+      },
     };
+    if (req.query && req.query.fbdebug) {
+      demographics.fb._debugRaw = { fbCountry, fbCity };
+    }
 
     // Latest comments — best effort. IG media comments need the extra
     // instagram_manage_comments permission (not just insights), so this may
