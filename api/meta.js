@@ -31,18 +31,30 @@ module.exports = async (req, res) => {
     const [page, ig, igMedia] = await Promise.all([
       safe(get(`${BASE}/${PAGE_ID}?fields=name,fan_count,followers_count&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}?fields=username,followers_count,media_count&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${IG_ID}/media?fields=id,timestamp,like_count,comments_count,reach,impressions,engagement,caption,permalink,media_url,thumbnail_url&limit=20&access_token=${TOKEN}`)),
+      // reach/impressions/engagement were dropped from this fields list —
+      // they require the instagram_manage_insights permission, which this
+      // app/token doesn't currently have (confirmed via ?debug=1: error #10
+      // "Application does not have permission for this action"). Without
+      // them the whole /media call was failing and returning nothing at all
+      // (Graph API rejects the entire fields list if one field needs a
+      // missing permission), which is why comments were empty too — there
+      // was no media list to pull comments from.
+      safe(get(`${BASE}/${IG_ID}/media?fields=id,timestamp,like_count,comments_count,caption,permalink,media_url,thumbnail_url&limit=20&access_token=${TOKEN}`)),
     ]);
 
     // Audience demographics — one Graph API call per breakdown dimension.
     // Meta requires >=100 followers for any of these to return real data;
     // below that threshold, or without the right permission, this just
     // comes back empty rather than erroring.
-    const [igAge, igGender, igCountry, fbGeo] = await Promise.all([
+    // NOTE on Facebook Page geo demographics (page_fans_country/city/locale):
+    // confirmed via ?debug=1 that Meta now rejects these outright with
+    // "(#100) The value must be a valid insights metric" — they've been
+    // removed from the API, not just permission-gated, so we no longer
+    // call them at all (dead end regardless of permissions).
+    const [igAge, igGender, igCountry] = await Promise.all([
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=age&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=gender&access_token=${TOKEN}`)),
       safe(get(`${BASE}/${IG_ID}/insights?metric=follower_demographics&metric_type=total_value&period=lifetime&breakdown=country&access_token=${TOKEN}`)),
-      safe(get(`${BASE}/${PAGE_ID}/insights?metric=page_fans_country,page_fans_city,page_fans_locale&period=lifetime&access_token=${TOKEN}`)),
     ]);
 
     function pickBreakdown(resp) {
@@ -67,11 +79,7 @@ module.exports = async (req, res) => {
         gender: pickBreakdown(igGender),
         country: pickBreakdown(igCountry),
       },
-      fb: {
-        country: pickLifetimeMetric(fbGeo, 'page_fans_country'),
-        city: pickLifetimeMetric(fbGeo, 'page_fans_city'),
-        locale: pickLifetimeMetric(fbGeo, 'page_fans_locale'),
-      }
+      fb: { unavailable: true }, // Meta removed page_fans_country/city/locale — no longer callable at all.
     };
 
     // Latest comments — best effort. IG media comments need the extra
@@ -115,7 +123,7 @@ module.exports = async (req, res) => {
     // (permission/scope/deprecation) instead of guessing. Remove once
     // diagnosed.
     if (req.query && req.query.debug) {
-      out._debugRaw = { igAge, igGender, igCountry, fbGeo, igMediaRaw: igMedia };
+      out._debugRaw = { igAge, igGender, igCountry, igMediaRaw: igMedia };
     }
     res.status(200).json(out);
   } catch(e) {
