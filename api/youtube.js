@@ -16,6 +16,15 @@ function get(url) {
   });
 }
 
+// commentThreads.list works with a plain API key for public read-only
+// comments (only moderationStatus filtering needs OAuth), so this is a
+// no-extra-setup win. Best-effort per video — comments can be disabled on
+// a video, which shouldn't break the rest of the response.
+async function safe(promise) {
+  try { return await promise; }
+  catch (e) { return { error: e.message }; }
+}
+
 // Pulls subscriber count + recent video stats directly from the official,
 // free YouTube Data API v3, so we don't depend on LiveDune for this
 // platform. Needs YOUTUBE_API_KEY and YOUTUBE_CHANNEL_ID env vars.
@@ -69,6 +78,24 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Latest comments across the most recent videos — cheap (1 quota unit
+    // per call) and works with the same API key, no OAuth needed.
+    const topVideos = videos.slice(0, 5);
+    const commentResults = await Promise.all(topVideos.map((v) =>
+      safe(get(
+        `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${v.id}&maxResults=5&order=time&key=${KEY}`
+      ))
+    ));
+    const comments = commentResults.flatMap((r, i) =>
+      ((r && r.items) || []).map((c) => {
+        const s = c.snippet.topLevelComment.snippet;
+        return {
+          text: s.textDisplay, author: s.authorDisplayName, time: s.publishedAt,
+          likes: s.likeCount || 0, postId: topVideos[i].id, postCaption: topVideos[i].text,
+        };
+      })
+    ).sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10);
+
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
@@ -76,6 +103,7 @@ module.exports = async (req, res) => {
       viewCount: parseInt(stats.viewCount || 0, 10),
       videoCount: parseInt(stats.videoCount || 0, 10),
       videos,
+      comments,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
