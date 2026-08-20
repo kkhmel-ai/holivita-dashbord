@@ -137,16 +137,23 @@ module.exports = async (req, res) => {
       }))
     ).sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10);
 
-    const fbPosts = await safe(get(`${BASE}/${PAGE_ID}/posts?fields=id,message,created_time&limit=5&access_token=${TOKEN}`));
+    // full_picture gives the post's real photo for thumbnails (LiveDune's own
+    // post data has no image field at all for Facebook/Telegram — this Graph
+    // API call is the only source of a real thumbnail for FB posts). Limit
+    // raised from 5 to 30 so the "UTM переходы" section (which can reference
+    // any recent post, not just the 5 used for comments) has a picture to
+    // show for more of them.
+    const fbPosts = await safe(get(`${BASE}/${PAGE_ID}/posts?fields=id,message,created_time,full_picture&limit=30&access_token=${TOKEN}`));
     const topFbPosts = ((fbPosts && fbPosts.data) || []);
-    const fbComments = await Promise.all(topFbPosts.map(p =>
+    const fbCommentPosts = topFbPosts.slice(0, 5); // comments stay capped at 5 posts — no need to hit Graph API 30x just for that
+    const fbComments = await Promise.all(fbCommentPosts.map(p =>
       safe(get(`${BASE}/${p.id}/comments?fields=message,from,created_time,like_count&limit=5&access_token=${TOKEN}`))
     ));
     const fbCommentsFlat = fbComments.flatMap((c, i) =>
       ((c && c.data) || []).map(cm => ({
         text: cm.message, author: cm.from && cm.from.name, time: cm.created_time,
-        likes: cm.like_count || 0, postId: topFbPosts[i] && topFbPosts[i].id,
-        postCaption: (topFbPosts[i] && topFbPosts[i].message || '').slice(0, 60),
+        likes: cm.like_count || 0, postId: fbCommentPosts[i] && fbCommentPosts[i].id,
+        postCaption: (fbCommentPosts[i] && fbCommentPosts[i].message || '').slice(0, 60),
       }))
     ).sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10);
 
@@ -155,6 +162,10 @@ module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
       page, ig, igMedia: (igMedia && igMedia.data) || [],
+      // id -> full_picture, so the front end can show a real thumbnail for
+      // Facebook posts in the "UTM переходы" section (LiveDune itself has no
+      // image field for FB posts at all).
+      fbMedia: topFbPosts.filter(p => p.full_picture).reduce((acc, p) => { acc[p.id] = p.full_picture; return acc; }, {}),
       demographics,
       comments: { instagram: igCommentsFlat, facebook: fbCommentsFlat },
     });
