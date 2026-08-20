@@ -4,8 +4,13 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 module.exports = async (req, res) => {
   const TOKEN = process.env.LIVEDUNE_TOKEN;
   const qp = {...(req.query||{})};
-  const customPath = qp._path;
+  // "path" is accepted as an alias for "_path" — some HTTP tooling (including
+  // our own debugging fetches) silently strips query keys starting with an
+  // underscore before the request goes out, which made this endpoint
+  // impossible to test for anything but the default accounts list.
+  const customPath = qp._path || qp.path;
   delete qp._path;
+  delete qp.path;
   delete qp['_vercel_no_cache'];
 
   // Only the default accounts list needs a trailing slash. Custom sub-resource
