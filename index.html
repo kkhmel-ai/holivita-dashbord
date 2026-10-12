@@ -207,10 +207,20 @@ body{background:var(--surface);color:var(--ink);font-family:"Inter",system-ui,sa
   </div>
   </div>
   <div id="tab-rubrics" style="display:none">
+  <div class="chart-card" id="rubrics-summary-card">
+    <div class="chart-title">Как рубрики и посты влияют на переходы</div>
+    <div class="chart-sub">Считается по постам со вставленной короткой ссылкой (как и вкладка «UTM-переходы»). Клики копятся с момента создания ссылки, поэтому цифры здесь не ограничены периодом, выбранным выше.</div>
+    <div id="rubrics-summary"></div>
+  </div>
   <div class="chart-card" id="rubrics-card">
-    <div class="chart-title">Рубрики контента</div>
-    <div class="chart-sub">#Insights · #Science · #Product — по хэштегам в тексте поста, сопоставлено с переходами по UTM</div>
+    <div class="chart-title">По категориям (UTM-кампания)</div>
+    <div class="chart-sub">Категория — это кампания, которую команда указывает при создании короткой ссылки (Продукт, Образование/инсайты, Мемы и т.д.). Отсортировано по числу переходов.</div>
     <div id="rubrics-body"></div>
+  </div>
+  <div class="chart-card" id="hashtags-card">
+    <div class="chart-title">По хэштегам в постах</div>
+    <div class="chart-sub">Любые #хэштеги из текста постов со вставленной ссылкой — без ограничения на заранее заданный список тегов</div>
+    <div id="hashtags-body"></div>
   </div>
   </div>
   <div class="footer">Holivita Analytics · LiveDune API · <span id="upd"></span></div>
@@ -919,85 +929,118 @@ function exportUtmCsv(){
   URL.revokeObjectURL(url);
 }
 
-// Рубрики контента — определяются по хэштегам прямо в тексте/подписи поста
-// (#Insights, #Science, #Product), а не вручную. Один пост может относиться
-// сразу к нескольким рубрикам, если в нём несколько хэштегов.
-const RUBRICS=[
-  {key:'insights',label:'Insights',tag:'insights',color:'#7eb56b'},
-  {key:'science',label:'Science',tag:'science',color:'#4a90d9'},
-  {key:'product',label:'Product',tag:'product',color:'#e1306c'},
-];
-function postHashtagRubrics(text){
-  if(!text)return[];
-  const tags=(text.match(/#(\w+)/g)||[]).map(t=>t.slice(1).toLowerCase());
-  return RUBRICS.filter(r=>tags.includes(r.tag)).map(r=>r.key);
+// Рубрики контента теперь строятся из двух реальных источников вместо
+// фиксированного списка из 3 хэштегов (#Insights/#Science/#Product), с
+// которым почти всегда было "нет данных", если авторы постов не ставили
+// именно эти английские теги:
+//  1) UTM-кампания короткой ссылки (CAMPAIGN_RU) — её и так проставляет
+//     команда при создании ссылки, поэтому данные есть всегда, когда есть
+//     сама ссылка;
+//  2) любые #хэштеги, фактически встретившиеся в тексте поста — без
+//     заранее заданного списка.
+// Источник постов тот же, что и во вкладке "UTM-переходы" (computeUtmMatches
+// / глобальный utmMatched, который renderUtm() уже успевает посчитать на
+// этом же render()), поэтому цифры кликов в обеих вкладках всегда совпадают.
+// Как и в UTM-переходах, это НЕ ограничено периодом (День/Неделя/Месяц) —
+// клики по ссылке копятся с момента её создания, а не только за последний
+// период, так что фильтровать выборку по периоду было бы вводящим в
+// заблуждение (пост мог собрать большинство переходов задолго до текущей
+// недели).
+function clicksOf(link){
+  if(!link)return {clicks:0,approx:false,has:false};
+  if(link.approx)return {clicks:clicksFloor(link),approx:true,has:true};
+  if(link.clicks!=null)return {clicks:link.clicks,approx:false,has:true};
+  return {clicks:0,approx:false,has:false};
+}
+function postHashtags(text){
+  return [...new Set((text.match(/#(\w+)/g)||[]).map(t=>t.slice(1).toLowerCase()))];
+}
+function renderRubricPostRow(p){
+  const c=PC[p._pt]||'#888';
+  const thumb=p.image_url||p.thumbnail||p.thumbnail_url||(p._pt==='facebook'&&fbMedia[p.post_id])||'';
+  const snippet=(p.text||p.caption||p.description||'').slice(0,70);
+  const clicksStr=p._hasClicks?(p._approx?'≥':'')+fmtN(p._clicks):'—';
+  return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);align-items:flex-start">'+
+    (thumb
+      ?'<img src="'+thumb+'" alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'"/>'
+      :'<span style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;background:var(--surface);flex-shrink:0;color:'+c+'"><span style="width:16px;height:16px;display:inline-flex">'+(SVG[p._pt]||'')+'</span></span>')+
+    '<div style="flex:1;min-width:0">'+
+      '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'+
+        '<span style="display:inline-flex;align-items:center;width:12px;height:12px;color:'+c+';flex-shrink:0">'+(SVG[p._pt]||'')+'</span>'+
+        '<span class="psm" style="font-weight:700">'+(PN[p._pt]||p._pt)+'</span>'+
+      '</div>'+
+      '<div style="font-size:12px">'+snippet+(snippet.length>=70?'…':'')+'</div>'+
+    '</div>'+
+    '<div style="text-align:right;flex-shrink:0"><div style="font-weight:700;font-size:13px;color:var(--brand-deep)">👁 '+clicksStr+'</div><div class="psm">ER '+p._er.toFixed(1)+'%</div></div></div>';
 }
 function renderRubrics(){
-  const body=document.getElementById('rubrics-body');
-  const byRubric={};
-  RUBRICS.forEach(r=>byRubric[r.key]={posts:[],erSum:0,clicksSum:0,clicksApprox:false});
-  let totalPosts=0,taggedPosts=0;
-  filtered().forEach(a=>{
-    const plt=ptype(a);
-    getPostsInPeriod(a.id).forEach(p=>{
-      totalPosts++;
-      const text=p.text||p.caption||p.description||'';
-      const rubrics=postHashtagRubrics(text);
-      if(!rubrics.length)return;
-      taggedPosts++;
-      const er=postER(p,getF(a));
-      const codes=findShortlinkCodes(text);
-      let clicks=0,approx=false,hasClicks=false;
-      codes.forEach(code=>{
-        const l=SHORTLINKS[code];
-        if(!l)return;
-        hasClicks=true;
-        if(l.approx){approx=true;clicks+=clicksFloor(l);}
-        else if(l.clicks!=null)clicks+=l.clicks;
-      });
-      rubrics.forEach(rk=>{
-        const b=byRubric[rk];
-        b.posts.push({...p,_pt:plt,_er:er,_clicks:hasClicks?clicks:null,_clicksApprox:approx});
-        if(Number.isFinite(er))b.erSum+=er;
-        if(hasClicks){b.clicksSum+=clicks;if(approx)b.clicksApprox=true;}
-      });
-    });
+  const summaryEl=document.getElementById('rubrics-summary');
+  const campEl=document.getElementById('rubrics-body');
+  const tagEl=document.getElementById('hashtags-body');
+  const matched=(utmMatched&&utmMatched.length?utmMatched:computeUtmMatches()).map(m=>{
+    const c=clicksOf(m._link);
+    return {...m,_clicks:c.clicks,_approx:c.approx,_hasClicks:c.has};
   });
-  if(!taggedPosts){
-    body.innerHTML='<div class="no-data">За выбранный период не нашлось постов с хэштегами #Insights, #Science или #Product — рубрика определяется автоматически по хэштегу прямо в тексте/подписи поста.</div>';
+
+  if(!matched.length){
+    summaryEl.innerHTML='';
+    campEl.innerHTML='<div class="no-data">Не нашлось постов со вставленной короткой ссылкой — рубрики считаются только для них (см. вкладку «UTM-переходы», там же объяснение, почему остальные посты сюда не попадают).</div>';
+    tagEl.innerHTML='';
     return;
   }
-  body.innerHTML=RUBRICS.map(r=>{
-    const b=byRubric[r.key];
-    if(!b.posts.length)return '';
-    const avgEr=b.erSum/b.posts.length;
-    const top=[...b.posts].sort((x,y)=>y._er-x._er).slice(0,3);
-    const clicksStr=b.clicksSum?(b.clicksApprox?'≥':'')+fmtN(b.clicksSum)+' 👁':'—';
-    const postRows=top.map(p=>{
-      const c=PC[p._pt]||'#888';
-      const thumb=p.image_url||p.thumbnail||p.thumbnail_url||(p._pt==='facebook'&&fbMedia[p.post_id])||'';
-      const snippet=(p.text||p.caption||p.description||'').slice(0,70);
-      const clicksPart=p._clicks!=null?' · 👁 '+(p._clicksApprox?'≥':'')+fmtN(p._clicks):'';
-      return '<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);align-items:flex-start">'+
-        (thumb
-          ?'<img src="'+thumb+'" alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'"/>'
-          :'<span style="display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;background:var(--surface);flex-shrink:0;color:'+c+'"><span style="width:16px;height:16px;display:inline-flex">'+(SVG[p._pt]||'')+'</span></span>')+
-        '<div style="flex:1;min-width:0">'+
-          '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">'+
-            '<span style="display:inline-flex;align-items:center;width:12px;height:12px;color:'+c+';flex-shrink:0">'+(SVG[p._pt]||'')+'</span>'+
-            '<span class="psm" style="font-weight:700">'+(PN[p._pt]||p._pt)+'</span>'+
-          '</div>'+
-          '<div style="font-size:12px">'+snippet+(snippet.length>=70?'…':'')+'</div>'+
-        '</div>'+
-        '<div style="text-align:right;flex-shrink:0"><div style="font-weight:700;font-size:13px;color:var(--brand-deep)">ER '+p._er.toFixed(1)+'%</div><div class="psm">'+clicksPart.replace(' · ','')+'</div></div></div>';
-    }).join('');
+
+  // --- сводка ---
+  let totalClicks=0,totalApprox=false;
+  matched.forEach(m=>{if(m._hasClicks){totalClicks+=m._clicks;if(m._approx)totalApprox=true;}});
+  const ersAll=matched.map(m=>m._er).filter(Number.isFinite);
+  const avgErAll=ersAll.length?ersAll.reduce((s,v)=>s+v,0)/ersAll.length:0;
+  summaryEl.innerHTML=
+    '<div style="display:flex;gap:28px;flex-wrap:wrap">'+
+      '<div><div class="psm">Постов со ссылками</div><div style="font-size:24px;font-weight:700">'+matched.length+'</div></div>'+
+      '<div><div class="psm">Переходов всего</div><div style="font-size:24px;font-weight:700;color:var(--brand-deep)">'+(totalApprox?'≥':'')+fmtN(totalClicks)+'</div></div>'+
+      '<div><div class="psm">Средний ER по этим постам</div><div style="font-size:24px;font-weight:700">'+avgErAll.toFixed(1)+'%</div></div>'+
+    '</div>';
+
+  // --- по категориям (UTM-кампания) ---
+  const byCamp={};
+  matched.forEach(m=>{
+    const key=m._link&&m._link.campaign?m._link.campaign:null;
+    const label=key?(CAMPAIGN_RU[key]||key):'Без кампании';
+    const b=byCamp[label]=byCamp[label]||{posts:[],clicks:0,approx:false,erSum:0,erN:0};
+    b.posts.push(m);
+    if(m._hasClicks){b.clicks+=m._clicks;if(m._approx)b.approx=true;}
+    if(Number.isFinite(m._er)){b.erSum+=m._er;b.erN++;}
+  });
+  const campKeys=Object.keys(byCamp).sort((a,b)=>byCamp[b].clicks-byCamp[a].clicks);
+  campEl.innerHTML=campKeys.map(label=>{
+    const b=byCamp[label];
+    const avgEr=b.erN?b.erSum/b.erN:0;
+    const top=[...b.posts].sort((x,y)=>y._clicks-x._clicks).slice(0,3);
+    const clicksStr=b.clicks?(b.approx?'≥':'')+fmtN(b.clicks):'—';
     return '<div style="margin-bottom:20px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
-        '<div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:3px;background:'+r.color+';display:inline-block"></span><span style="font-weight:700;font-size:14px">#'+r.label+'</span><span class="psm">('+b.posts.length+' пост.)</span></div>'+
-        '<div style="text-align:right"><div class="psm">Средний ER: <span>'+avgEr.toFixed(1)+'%</span> · Переходы: <span>'+clicksStr+'</span></div></div>'+
-      '</div>'+postRows+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">'+
+        '<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;font-size:14px">'+label+'</span><span class="psm">('+b.posts.length+' пост.)</span></div>'+
+        '<div style="text-align:right"><div class="psm">Переходы: <span style="color:var(--ink);font-weight:700">'+clicksStr+'</span> · Средний ER: <span>'+avgEr.toFixed(1)+'%</span></div></div>'+
+      '</div>'+top.map(renderRubricPostRow).join('')+
     '</div>';
   }).join('');
+
+  // --- по хэштегам ---
+  const byTag={};
+  matched.forEach(m=>{
+    postHashtags(m.text||m.caption||m.description||'').forEach(tag=>{
+      const b=byTag[tag]=byTag[tag]||{n:0,clicks:0,approx:false};
+      b.n++;
+      if(m._hasClicks){b.clicks+=m._clicks;if(m._approx)b.approx=true;}
+    });
+  });
+  const tagKeys=Object.keys(byTag);
+  if(!tagKeys.length){
+    tagEl.innerHTML='<div class="no-data">В текстах этих постов не нашлось ни одного #хэштега.</div>';
+  }else{
+    const tagList=tagKeys.map(tag=>({key:'#'+tag+' ('+byTag[tag].n+' пост.)',value:byTag[tag].clicks}));
+    tagEl.innerHTML=demoBars(tagList,'Переходы по хэштегам',"#7eb56b");
+  }
 }
 
 function render(){
