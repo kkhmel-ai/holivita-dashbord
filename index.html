@@ -299,7 +299,7 @@ function initDates(){
   document.getElementById('dt').value=fmt(to);
 }
 function getDates(){return{from:document.getElementById('df').value,to:document.getElementById('dt').value}}
-function onDateChange(){render();}
+async function onDateChange(){await loadPrevFollowers();render();}
 
 function chipIcon(p){
   if(!SVG[p])return '';
@@ -316,7 +316,7 @@ function buildPltBar(){
     </div>`).join('');
 }
 
-function setPeriod(p){
+async function setPeriod(p){
   S.period=p;
   document.querySelectorAll('.seg-btn').forEach(b=>b.classList.toggle('on',b.textContent===(p==='day'?'День':p==='week'?'Неделя':'Месяц')));
   const to=new Date(),from=new Date(to);
@@ -325,6 +325,7 @@ function setPeriod(p){
   if(p==='month')from.setMonth(to.getMonth()-1);
   document.getElementById('df').value=fmt(from);
   document.getElementById('dt').value=fmt(to);
+  await loadPrevFollowers();
   render();
 }
 function setPlt(p){
