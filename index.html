@@ -199,6 +199,12 @@ body{background:var(--surface);color:var(--ink);font-family:"Inter",system-ui,sa
     </div>
     <div id="utm-body"></div>
   </div>
+  <div class="chart-card" id="permalinks-card">
+    <div class="chart-title">Переходы по закреплённым ссылкам</div>
+    <div class="chart-sub">Ссылки в шапках профилей (не привязаны к конкретному посту) — Instagram, Telegram, Facebook. История по дням копится со дня первого обновления данных.</div>
+    <div id="permalinks-totals" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div class="chart-wrap" id="permalinks-wrap"><canvas id="cPermalinks" role="img" aria-label="Переходы по закреплённым ссылкам">Переходы.</canvas></div>
+  </div>
   </div>
   <div id="tab-rubrics" style="display:none">
   <div class="chart-card" id="rubrics-card">
@@ -234,24 +240,32 @@ let ldHistory={};
 let growthWindowDays=30;
 let fbMedia={}; // Facebook post id -> real photo URL (from Graph API; LiveDune's own FB posts have no image field)
 
-// Ручной снимок из внутреннего шортлинкера s.holivita.ai (страница "Ссылки"),
-// сделан 26.08.2026 (95 ссылок; предыдущий снимок был от 20.08.2026, 89
-// ссылок). Перед публикацией поста команда создаёт короткую ссылку вида
+// Живые цифры переходов по каждому коду шортлинкера — подгружаются из
+// /api/shortlinks (см. api/shortlinks.js), который читает наш собственный
+// снимок в Postgres (api/shortlink-snapshot.js). У самого шортлинкера
+// s.holivita.ai/s-admin.holivita.ai нет API или экспорта — его админка это
+// интерактивная Streamlit-консоль без JSON-эндпоинта, — поэтому данные
+// свежи ровно настолько, насколько давно кто-то (пока это вручную я) в
+// последний раз зашёл в админку и обновил снимок — см. loadShortlinks()
+// ниже, вызывается при каждой загрузке/обновлении страницы.
+// Перед публикацией поста команда создаёт короткую ссылку вида
 // s.holivita.ai/<КОД> с UTM-метками и вставляет её прямо в текст поста — это
 // и позволяет сопоставить пост с переходами: просто ищем код ссылки в тексте
-// поста (см. findShortlinkCodes()). У шортлинкера нет API/экспорта, а его
-// собственный интерфейс обрезает большие числа переходов в узкой карточке
-// (показывает, например, "4…" вместо полного числа) — когда это происходит,
-// approx=true и approxLead хранит первую видимую цифру (например 4 значит
-// "число начинается на 4, т.е. не меньше 400"); clicks в этом случае — либо
-// null, либо последнее точно известное значение с более ранних снимков
-// (тогда это гарантированный нижний предел, не точное число сейчас). Чтобы
-// обновить снимок — пришлите новый скрин/PDF страницы "Ссылки", и я
-// пересоберу эту таблицу.
-const SHORTLINKS={
-"LNBM":{source:"social",medium:"facebook",campaign:"insight",clicks:22,approx:false},"HMEP":{source:"social",medium:"x",campaign:"insight",clicks:18,approx:false},"8EBI":{source:"social",medium:"telegram",campaign:"insight",clicks:null,approx:true,approxLead:4},"CVZ9":{source:"social",medium:"facebook",campaign:"meme",clicks:19,approx:false},"6BRE":{source:"social",medium:"x",campaign:"meme",clicks:17,approx:false},"6M67":{source:"social",medium:"telegram",campaign:"meme",clicks:76,approx:false},"SOFD":{source:"social",medium:"facebook",campaign:"product",clicks:16,approx:false},"U4TD":{source:"social",medium:"x",campaign:"product",clicks:41,approx:false},"30W1":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:4},"8UV5":{source:"social",medium:"facebook",campaign:"product",clicks:19,approx:false},"OAYQ":{source:"social",medium:"x",campaign:"product",clicks:36,approx:false},"S0HY":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:1},"APPX":{source:"social",medium:"x",campaign:null,clicks:3,approx:false},"8LOW":{source:"social",medium:"facebook",campaign:"product",clicks:0,approx:false},"0J49":{source:"social",medium:"x",campaign:"product",clicks:35,approx:false},"WQK4":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:1},"24EV":{source:"social",medium:"instagram",campaign:"product",clicks:0,approx:false},"4PTK":{source:null,medium:"youtube",campaign:null,clicks:2,approx:false},"DVZV":{source:"social",medium:"facebook",campaign:"product",clicks:20,approx:false},"P5XK":{source:"support",medium:null,campaign:null,clicks:1,approx:false},"FU2D":{source:"social",medium:"x",campaign:"product",clicks:46,approx:false},"NH04":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:4},"F79H":{source:"social",medium:"x",campaign:"product",clicks:41,approx:false},"CQBT":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:5},"7HVC":{source:null,medium:"youtube",campaign:null,clicks:19,approx:false},"1NIW":{source:"social",medium:"x",campaign:"product",clicks:43,approx:false},"UUKF":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:7},"5WK9":{source:null,medium:"youtube",campaign:null,clicks:37,approx:false},"ZWEG":{source:null,medium:"youtube",campaign:null,clicks:null,approx:true,approxLead:3},"TELEGRAM":{source:"social",medium:"telegram",campaign:null,clicks:26,approx:false},"U02L":{source:"social",medium:"facebook",campaign:"product",clicks:35,approx:false},"7DXT":{source:"social",medium:"instagram",campaign:"product",clicks:0,approx:false},"UT2X":{source:"social",medium:"x",campaign:"product",clicks:42,approx:false},"X1ZK":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:1},"H8JD":{source:"social",medium:"facebook",campaign:"product",clicks:6,approx:false},"8CEV":{source:"social",medium:"instagram",campaign:"product",clicks:4,approx:false},"4GPF":{source:"social",medium:"x",campaign:"product",clicks:48,approx:false},"9RSD":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:2},"CNOY":{source:"social",medium:"telegram",campaign:"product",clicks:68,approx:false},"4DZQ":{source:"social",medium:"x",campaign:"product",clicks:51,approx:false},"FACEBOOK":{source:"social",medium:"facebook",campaign:null,clicks:17,approx:false},"INST":{source:"social",medium:"instagram",campaign:null,clicks:17643,approx:true,approxLead:1},"FY95":{source:"social",medium:"telegram",campaign:"holiday",clicks:2,approx:false},"SN77":{source:"social",medium:"x",campaign:"product",clicks:39,approx:false},"M1ID":{source:"social",medium:"telegram",campaign:"product",clicks:93,approx:false},"JRRO":{source:"social",medium:"x",campaign:"insight",clicks:31,approx:false},"DGVJ":{source:"social",medium:"telegram",campaign:"insight",clicks:6,approx:false},"CB1N":{source:"social",medium:"tiktok",campaign:null,clicks:15,approx:false},"0VPK":{source:"social",medium:"x",campaign:"product",clicks:37,approx:false},"DO4I":{source:"social",medium:null,campaign:null,clicks:22,approx:false},"DE1N":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:1},"G6XX":{source:"social",medium:"telegram",campaign:"product",clicks:12,approx:false},"FK8Z":{source:"influencer",medium:"instagram",campaign:null,clicks:2,approx:false},"NNZ8":{source:"influencer",medium:"instagram",campaign:null,clicks:2,approx:false},"H9AV":{source:"influencer",medium:"instagram",campaign:null,clicks:2,approx:false},"ZF2Y":{source:"influencer",medium:"instagram",campaign:null,clicks:4,approx:false},"PNIS":{source:"influencer",medium:"instagram",campaign:null,clicks:3,approx:false},"XE5G":{source:"influencer",medium:"instagram",campaign:null,clicks:0,approx:false},"IPGQ":{source:"social",medium:"x",campaign:"insight",clicks:24,approx:false},"CCD9":{source:"social",medium:"telegram",campaign:"insight",clicks:12,approx:false},"4PMP":{source:"social",medium:"facebook",campaign:"sleep",clicks:21,approx:false},"A314":{source:null,medium:"instagram",campaign:null,clicks:31,approx:false},"2QYF":{source:null,medium:"youtube",campaign:null,clicks:30,approx:false},"QZH2":{source:null,medium:"youtube",campaign:null,clicks:null,approx:true,approxLead:1},"3L1R":{source:"social",medium:"x",campaign:"insight",clicks:16,approx:false},"TFXW":{source:"social",medium:"telegram",campaign:"insight",clicks:46,approx:false},"TZX3":{source:"social",medium:"instagram",campaign:"insight",clicks:3,approx:false},"0W7M":{source:"social",medium:"x",campaign:"sleep",clicks:16,approx:false},"EXL2":{source:"influencer",medium:"instagram",campaign:null,clicks:317,approx:true,approxLead:3},"SOSR":{source:"influencer",medium:"instagram",campaign:null,clicks:null,approx:true,approxLead:1},"08K7":{source:"influencer",medium:"instagram",campaign:null,clicks:4,approx:false},"XMPG":{source:"social",medium:"x",campaign:"product",clicks:16,approx:false},"CA1M":{source:"social",medium:"telegram",campaign:"product",clicks:11,approx:false},"JI1F":{source:"social",medium:"telegram",campaign:"insight",clicks:17,approx:false},"W2O0":{source:"social",medium:"x",campaign:"insight",clicks:12,approx:false},"KSWD":{source:"social",medium:"x",campaign:"insight",clicks:17,approx:false},"U07P":{source:"social",medium:"telegram",campaign:"insight",clicks:21,approx:false},"7FXO":{source:null,medium:"telegram",campaign:null,clicks:1,approx:false},"8LOJ":{source:null,medium:"telegram",campaign:null,clicks:45,approx:false},"6SQ4":{source:"social",medium:"x",campaign:"product",clicks:14,approx:false},"Q6LA":{source:"social",medium:"telegram",campaign:"product",clicks:null,approx:true,approxLead:1},"BA9C":{source:null,medium:"telegram",campaign:null,clicks:2,approx:false},"WBA1":{source:null,medium:"telegram",campaign:null,clicks:75,approx:false},"EUOS":{source:"social",medium:"x",campaign:null,clicks:55,approx:false},"UNRD":{source:"social",medium:"telegram",campaign:null,clicks:28,approx:false},"HEPP":{source:null,medium:"telegram",campaign:null,clicks:24,approx:false},"YDQH":{source:"social",medium:"telegram",campaign:null,clicks:44,approx:false},"SDZR":{source:"pr",medium:"esquire",campaign:"pr_esquire",clicks:5,approx:false},"EHD1":{source:"social",medium:"x",campaign:null,clicks:17,approx:false},"JGV1":{source:"social",medium:"telegram",campaign:null,clicks:null,approx:true,approxLead:1},"IWGL":{source:"social",medium:"x",campaign:null,clicks:70,approx:false},"7V10":{source:"social",medium:"telegram",campaign:null,clicks:28,approx:false},"ZK53":{source:"social",medium:"x",campaign:null,clicks:11,approx:false},"GSOM":{source:"social",medium:"telegram",campaign:null,clicks:154,approx:true,approxLead:1},"IWHC":{source:null,medium:null,campaign:null,clicks:1,approx:false}
-};
-const CAMPAIGN_RU={product:'Продукт',insight:'Образование/инсайты',sleep:'Сон',holiday:'Праздник',pr_esquire:'PR (Esquire)',meme:'Мемы'};
+// поста (см. findShortlinkCodes()).
+let SHORTLINKS={};
+// Полная история по дням для каждого кода (сколько снимков успели накопиться
+// — см. api/shortlink-history.js). Используется графиком "Переходы по
+// закреплённым ссылкам" (PERMALINKS ниже) — у остальных кодов история тоже
+// копится, на случай если понадобится позже.
+let shortlinkHistory={};
+// Ссылки, закреплённые в шапках профилей (не привязаны к конкретному посту)
+// — для них отдельно рисуем график по дням, а не просто сопоставляем с постом.
+const PERMALINKS=[
+  {code:'INST',label:'Instagram (шапка профиля)',color:'#e1306c'},
+  {code:'TELEGRAM',label:'Telegram (шапка канала)',color:'#2ca5e0'},
+  {code:'FACEBOOK',label:'Facebook (шапка страницы)',color:'#1877f2'},
+];
+const CAMPAIGN_RU={product:'Продукт',insight:'Образование/инсайты',sleep:'Сон',holiday:'Праздник',pr_esquire:'PR (Esquire)',meme:'Мемы',science:'Наука',ama:'AMA'};
 const TYPE_RU={
   reels:'Reels',image:'Фото',carousel:'Карусель',photo:'Фото',video:'Видео',poll:'Опрос',
   article:'Статья',round:'Круглое видео',text:'Текст',
@@ -735,6 +749,34 @@ function renderPtype(){
   body.innerHTML=demoBars(list,'Тип публикации',c);
 }
 
+function renderPermalinks(){
+  const wrap=document.getElementById('permalinks-wrap');
+  const totalsEl=document.getElementById('permalinks-totals');
+  if(!wrap||!totalsEl)return;
+  totalsEl.innerHTML=PERMALINKS.map(p=>{
+    const l=SHORTLINKS[p.code];
+    const val=l&&l.clicks!=null?fmtN(l.clicks):'—';
+    return '<div style="flex:1;min-width:120px"><div class="psm" style="color:'+p.color+'">'+p.label+'</div><div style="font-size:20px;font-weight:700;color:var(--brand-deep)">'+val+'</div></div>';
+  }).join('');
+  const series=PERMALINKS.map(p=>({...p,days:(shortlinkHistory[p.code]&&shortlinkHistory[p.code].days)||[]}));
+  const withData=series.filter(s=>s.days.length>=2);
+  if(!withData.length){
+    wrap.innerHTML='<div class="no-data">История копится по снимкам (см. числа выше) — графику по дням нужно минимум два обновления данных в разные дни, пока есть только один снимок.</div>';
+    return;
+  }
+  const allDates=[...new Set(withData.flatMap(s=>s.days.map(d=>d.date)))].sort();
+  if(!wrap.querySelector('canvas'))wrap.innerHTML='<canvas id="cPermalinks" role="img" aria-label="Переходы по закреплённым ссылкам">Переходы.</canvas>';
+  if(charts.permalinks)charts.permalinks.destroy();
+  charts.permalinks=new Chart(document.getElementById('cPermalinks'),{
+    type:'line',
+    data:{labels:allDates,datasets:withData.map(s=>{
+      const byDate={};s.days.forEach(d=>byDate[d.date]=d.clicks);
+      return {label:s.label,data:allDates.map(d=>byDate[d]??null),borderColor:s.color,backgroundColor:rgba(s.color,.12),tension:.3,spanGaps:true,pointRadius:allDates.length>60?0:2};
+    })},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:9,font:{size:11}}}},scales:{x:{ticks:{color:'#747872',font:{size:10},maxTicksLimit:8},grid:{display:false}},y:{ticks:{color:'#747872',font:{size:10},callback:v=>fmtN(v)},grid:{color:'rgba(0,0,0,.04)'}}}}
+  });
+}
+
 const SHORTLINK_RE=/s\.holivita\.ai\/([A-Za-z0-9]{3,8})\b/gi;
 function findShortlinkCodes(text){
   if(!text)return[];
@@ -971,6 +1013,7 @@ function render(){
   renderYtAnalytics();
   renderPtype();
   renderUtm();
+  renderPermalinks();
   renderRubrics();
   renderPosts();
   renderComments();
@@ -1087,13 +1130,31 @@ async function loadLdHistory(){
     }
   }catch(e){}
 }
+async function loadShortlinks(){
+  try{
+    const r=await fetch('/api/shortlinks');
+    if(r.ok){
+      const j=await r.json();
+      SHORTLINKS=j.links||{};
+    }
+  }catch(e){}
+}
+async function loadShortlinkHistory(){
+  try{
+    const r=await fetch('/api/shortlink-history');
+    if(r.ok){
+      const j=await r.json();
+      shortlinkHistory=j.codes||{};
+    }
+  }catch(e){}
+}
 async function refreshAll(){
   const btn=document.getElementById('refresh-btn');
   btn.textContent='⏳ Загрузка...';
   btn.disabled=true;
   postsCache={};
   prevFollowers={};
-  await Promise.all([loadPosts(),loadLdHistory()]);
+  await Promise.all([loadPosts(),loadLdHistory(),loadShortlinks(),loadShortlinkHistory()]);
   await loadPrevFollowers(); // needs ldHistory loaded first
   await loadMeta();
   await loadYtAnalytics();
@@ -1117,7 +1178,7 @@ async function init(){
     document.getElementById('stxt').textContent='LiveDune · '+accounts.length+' аккаунтов';
     document.getElementById('upd').textContent='Обновлено: '+new Date().toLocaleString('ru');
     render();
-await Promise.all([loadPosts(),loadLdHistory()]);
+await Promise.all([loadPosts(),loadLdHistory(),loadShortlinks(),loadShortlinkHistory()]);
     await loadPrevFollowers(); // needs ldHistory loaded first
     await loadMeta();
     await loadYtAnalytics();
